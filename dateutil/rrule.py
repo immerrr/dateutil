@@ -28,7 +28,9 @@ except ImportError:
 __all__ = ["rrule", "rruleset", "rrulestr",
            "YEARLY", "MONTHLY", "WEEKLY", "DAILY",
            "HOURLY", "MINUTELY", "SECONDLY",
-           "MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+           "MO", "TU", "WE", "TH", "FR", "SA", "SU",
+           "OMIT", "BACKWARD", "FORWARD",
+           ]
 
 # Every mask is 7 days longer to handle cross-year weekly periods.
 M366MASK = tuple([1]*31+[2]*29+[3]*31+[4]*30+[5]*31+[6]*30 +
@@ -56,6 +58,18 @@ FREQNAMES = ['YEARLY', 'MONTHLY', 'WEEKLY', 'DAILY', 'HOURLY', 'MINUTELY', 'SECO
  HOURLY,
  MINUTELY,
  SECONDLY) = list(range(7))
+
+
+class _SkipOption(object):
+    __slots__ = ['name']
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):     # pragma: nocover
+        return self.name
+
+OMIT, BACKWARD, FORWARD = map(_SkipOption, ('OMIT', 'BACKWARD', 'FORWARD'))
 
 # Imported on demand.
 easter = None
@@ -425,7 +439,7 @@ class rrule(rrulebase):
         times, enabling caching will improve the performance considerably.
     :param skip:
         If given, it must be a value representing the skip policy.
-        Can be either 'OMIT' (same as None), 'BACKWARD' or 'FORWARD'.
+        Can be either ``OMIT`` (default), ``BACKWARD`` or ``FORWARD``.
      """
 
     def __init__(self, freq, dtstart=None,
@@ -689,15 +703,14 @@ class rrule(rrulebase):
 
         # skip
         if skip is not None:
-            skip = skip.upper()
-            if skip not in {'OMIT', 'BACKWARD', 'FORWARD'}:
+            if not isinstance(skip, _SkipOption):
                 raise ValueError('Invalid SKIP component: {}'.format(skip))
 
             self._skip = skip
             self._original_rule['skip'] = skip
             self._original_rule['rscale'] = 'GREGORIAN'
         else:
-            self._skip = 'OMIT'
+            self._skip = OMIT
 
         if self._freq >= HOURLY:
             self._timeset = None
@@ -852,13 +865,13 @@ class rrule(rrulebase):
             leap = False
 
             # SKIP rule
-            if day > 28 and self._skip != 'OMIT':
+            if self._skip != OMIT and day > 28:
                 daysinmonth = calendar.monthrange(year, month)[1]
                 if day > daysinmonth:
-                    if self._skip == 'BACKWARD':
+                    if self._skip == BACKWARD:
                         day = daysinmonth
                         leap = True
-                    elif self._skip == 'FORWARD':
+                    elif self._skip == FORWARD:
                         day = 1
                         month += 1
                         if month == 13:
@@ -1521,6 +1534,8 @@ class _rrulestr(object):
     _weekday_map = {"MO": 0, "TU": 1, "WE": 2, "TH": 3,
                     "FR": 4, "SA": 5, "SU": 6}
 
+    _skip_map = {"OMIT": OMIT, "BACKWARD": BACKWARD, "FORWARD": FORWARD}
+
     def _handle_int(self, rrkwargs, name, value, **kwargs):
         rrkwargs[name.lower()] = int(value)
 
@@ -1542,7 +1557,6 @@ class _rrulestr(object):
     _handle_BYMINUTE = _handle_int_list
     _handle_BYSECOND = _handle_int_list
     _handle_RSCALE = _handle_str
-    _handle_SKIP = _handle_str
 
     def _handle_FREQ(self, rrkwargs, name, value, **kwargs):
         rrkwargs["freq"] = self._freq_map[value]
@@ -1589,6 +1603,9 @@ class _rrulestr(object):
 
     _handle_BYDAY = _handle_BYWEEKDAY
 
+    def _handle_SKIP(self, rrkwargs, name, value, **kwargs):
+        rrkwargs["skip"] = self._skip_map[value]
+
     # List taken from https://www.unicode.org/repos/cldr/tags/latest/common/bcp47/calendar.xml
     _VALID_RSCALES = {'GREGORIAN', 'GREGORY', 'BUDDHIST', 'CHINESE', 'COPTIC',
                       'DANGI', 'ETHIOAA', 'ETHIOPIC', 'HEBREW', 'INDIAN',
@@ -1620,7 +1637,7 @@ class _rrulestr(object):
                 raise ValueError("invalid '%s': %s" % (name, value))
 
         if 'skip' in rrkwargs and 'rscale' not in rrkwargs:
-            raise ValueError("SKIP must have a RSCALE")
+                raise ValueError("SKIP must have a RSCALE")
 
         if 'rscale' in rrkwargs:
             # Only the Gregorian calendar is supported at the moment

@@ -5009,7 +5009,6 @@ class WeekdayTest(unittest.TestCase):
 
 
 @pytest.mark.rrule
-@pytest.mark.xfail
 @pytest.mark.parametrize('rrkwargs, exp', [
     ({}, [datetime(2015, 1, 31), datetime(2015, 3, 31)]),
     ({'skip': OMIT},
@@ -5019,8 +5018,26 @@ class WeekdayTest(unittest.TestCase):
     ({'skip': FORWARD},
      [datetime(2015, 1, 31), datetime(2015, 3, 1)]),
 ])
-def test_skip_bymonthday(rrkwargs, exp):
+def test_monthly_skip_bymonthday(rrkwargs, exp):
     rr = rrule(MONTHLY, dtstart=datetime(2015, 1, 1), bymonthday=31, count=2)
+    rr = rr.replace(**rrkwargs)
+
+    assert list(rr) == exp
+
+
+@pytest.mark.rrule
+@pytest.mark.parametrize('rrkwargs, exp', [
+    ({}, [datetime(2015, 1, 31), datetime(2015, 3, 31)]),
+    ({'skip': OMIT},
+     [datetime(2015, 1, 31), datetime(2015, 3, 31)]),
+    ({'skip': BACKWARD},
+     [datetime(2015, 1, 31), datetime(2015, 2, 28)]),
+    ({'skip': FORWARD},
+     [datetime(2015, 1, 31), datetime(2015, 3, 1)]),
+])
+def test_yearly_skip_bymonthday(rrkwargs, exp):
+    rr = rrule(YEARLY, dtstart=datetime(2015, 1, 1),
+               bymonthday=31, bymonth=[1, 2, 3], count=2)
     rr = rr.replace(**rrkwargs)
 
     assert list(rr) == exp

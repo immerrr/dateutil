@@ -45,6 +45,12 @@ NMDAY365MASK = list(NMDAY366MASK)
 M366RANGE = (0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366)
 M365RANGE = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365)
 WDAYMASK = [0, 1, 2, 3, 4, 5, 6]*55
+DAYSINMONTH366MASK = tuple([31]*31+[29]*29+[31]*31+[30]*30+[31]*31+[30]*30 +
+                           [31]*31+[31]*31+[30]*30+[31]*31+[30]*30+[31]*31 +
+                           [31]*7)
+DAYSINMONTH365MASK = tuple([31]*31+[28]*28+[31]*31+[30]*30+[31]*31+[30]*30 +
+                           [31]*31+[31]*31+[30]*30+[31]*31+[30]*30+[31]*31 +
+                           [31]*7)
 del M29, M30, M31, M365MASK[59], MDAY365MASK[59], NMDAY365MASK[31]
 MDAY365MASK = tuple(MDAY365MASK)
 M365MASK = tuple(M365MASK)
@@ -886,6 +892,11 @@ class rrule(rrulebase):
             # Get dayset with the right frequency
             dayset, start, end = getdayset(year, month, day)
 
+            if bymonthday and self._skip != OMIT:
+                max_bymonthday = max(bymonthday)
+            else:
+                max_bymonthday = None
+
             # Do the "hard" work ;-)
             filtered = False
             for i in dayset[start:end]:
@@ -897,7 +908,13 @@ class rrule(rrulebase):
                     ((bymonthday or bynmonthday) and
                      ii.mdaymask[i] not in bymonthday and
                      ii.nmdaymask[i] not in bynmonthday and
-                     (not leap or ii.mdaymask[i] != day)) or
+                     not (self._skip == BACKWARD and
+                          max_bymonthday > ii.mdaymask[i] and
+                          ii.mdaymask[i] == ii.daysinmonthmask[i]) and
+                     not (self._skip == FORWARD and
+                          ii.mdaymask[i] == 1 and
+                          max_bymonthday > ii.daysinmonthmask[i-1])
+                     ) or
                     (byyearday and
                      ((i < ii.yearlen and i+1 not in byyearday and
                        -ii.yearlen+i not in byyearday) or
@@ -1176,7 +1193,8 @@ class _iterinfo(object):
     __slots__ = ["rrule", "lastyear", "lastmonth",
                  "yearlen", "nextyearlen", "yearordinal", "yearweekday",
                  "mmask", "mrange", "mdaymask", "nmdaymask",
-                 "wdaymask", "wnomask", "nwdaymask", "eastermask"]
+                 "wdaymask", "wnomask", "nwdaymask", "eastermask",
+                 "daysinmonthmask"]
 
     def __init__(self, rrule):
         for attr in self.__slots__:
@@ -1200,12 +1218,14 @@ class _iterinfo(object):
                 self.nmdaymask = NMDAY365MASK
                 self.wdaymask = WDAYMASK[wday:]
                 self.mrange = M365RANGE
+                self.daysinmonthmask = DAYSINMONTH365MASK
             else:
                 self.mmask = M366MASK
                 self.mdaymask = MDAY366MASK
                 self.nmdaymask = NMDAY366MASK
                 self.wdaymask = WDAYMASK[wday:]
                 self.mrange = M366RANGE
+                self.daysinmonthmask = DAYSINMONTH366MASK
 
             if not rr._byweekno:
                 self.wnomask = None

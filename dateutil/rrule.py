@@ -897,6 +897,11 @@ class rrule(rrulebase):
             else:
                 max_bymonthday = None
 
+            if byyearday and self._skip != OMIT:
+                max_byyearday = max(byyearday)
+            else:
+                max_byyearday = None
+
             # Do the "hard" work ;-)
             filtered = False
             for i in dayset[start:end]:
@@ -913,13 +918,21 @@ class rrule(rrulebase):
                           ii.mdaymask[i] == ii.daysinmonthmask[i]) and
                      not (self._skip == FORWARD and
                           ii.mdaymask[i] == 1 and
-                          max_bymonthday > ii.daysinmonthmask[i-1])
-                     ) or
+                          max_bymonthday > ii.daysinmonthmask[i-1] and
+                          ((year, ii.mmask[i]) >
+                           (self._dtstart.year, self._dtstart.month)))) or
                     (byyearday and
                      ((i < ii.yearlen and i+1 not in byyearday and
                        -ii.yearlen+i not in byyearday) or
                       (i >= ii.yearlen and i+1-ii.yearlen not in byyearday and
-                       -ii.nextyearlen+i-ii.yearlen not in byyearday)))):
+                       -ii.nextyearlen+i-ii.yearlen not in byyearday)) and
+                     not (self._skip == BACKWARD and
+                          i+1 == ii.yearlen and
+                          max_byyearday > ii.yearlen) and
+                     not (self._skip == FORWARD and
+                          i+1 == 1 and
+                          year > self._dtstart.year and
+                          max_byyearday > 365 + calendar.isleap(year - 1)))):
                     dayset[i] = None
                     filtered = True
 

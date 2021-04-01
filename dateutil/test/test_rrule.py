@@ -5010,16 +5010,26 @@ class WeekdayTest(unittest.TestCase):
 
 @pytest.mark.rrule
 @pytest.mark.parametrize('rrkwargs, exp', [
-    ({}, [datetime(2015, 1, 31), datetime(2015, 3, 31)]),
-    ({'skip': OMIT},
+    ({'dtstart': datetime(2015, 1, 1)},
      [datetime(2015, 1, 31), datetime(2015, 3, 31)]),
-    ({'skip': BACKWARD},
+    ({'skip': OMIT,
+      'dtstart': datetime(2015, 1, 1)},
+     [datetime(2015, 1, 31), datetime(2015, 3, 31)]),
+    ({'skip': BACKWARD,
+      'dtstart': datetime(2015, 1, 1)},
      [datetime(2015, 1, 31), datetime(2015, 2, 28)]),
-    ({'skip': FORWARD},
+    ({'skip': FORWARD,
+      'dtstart': datetime(2015, 1, 1)},
      [datetime(2015, 1, 31), datetime(2015, 3, 1)]),
+
+    # Make sure to exclude skip-forward cases when there is a skipped date is
+    # before dtstart.
+    ({'skip': FORWARD,
+      'dtstart': datetime(2015, 3, 1)},
+     [datetime(2015, 3, 31), datetime(2015, 5, 1)])
 ])
 def test_monthly_skip_bymonthday(rrkwargs, exp):
-    rr = rrule(MONTHLY, dtstart=datetime(2015, 1, 1), bymonthday=31, count=2)
+    rr = rrule(MONTHLY, bymonthday=31, count=2)
     rr = rr.replace(**rrkwargs)
 
     assert list(rr) == exp
@@ -5038,6 +5048,24 @@ def test_monthly_skip_bymonthday(rrkwargs, exp):
 def test_yearly_skip_bymonthday(rrkwargs, exp):
     rr = rrule(YEARLY, dtstart=datetime(2015, 1, 1),
                bymonthday=31, bymonth=[1, 2, 3], count=2)
+    rr = rr.replace(**rrkwargs)
+
+    assert list(rr) == exp
+
+
+@pytest.mark.rrule
+@pytest.mark.parametrize('rrkwargs, exp', [
+    ({}, [datetime(2016, 12, 31), datetime(2020, 12, 31)]),
+    ({'skip': OMIT},
+     [datetime(2016, 12, 31), datetime(2020, 12, 31)]),
+    ({'skip': BACKWARD},
+     [datetime(2016, 12, 31), datetime(2017, 12, 31)]),
+    ({'skip': FORWARD},
+     [datetime(2016, 12, 31), datetime(2018, 1, 1)]),
+])
+def test_yearly_skip_byyearday(rrkwargs, exp):
+    rr = rrule(YEARLY, dtstart=datetime(2016, 1, 1),
+               byyearday=366, count=2)
     rr = rr.replace(**rrkwargs)
 
     assert list(rr) == exp
